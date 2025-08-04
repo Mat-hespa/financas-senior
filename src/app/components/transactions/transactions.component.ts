@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { Router } from '@angular/router';
 import { FinanceService, Transaction } from '../../../services/finance.service';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-transactions',
@@ -128,20 +129,46 @@ export class TransactionsComponent implements OnInit {
     this.router.navigate(['/edit-transaction', transaction.id]);
   }
 
-  // Uncommented and updated delete functionality
   deleteTransaction(id: string) {
-    if (confirm('Tem certeza que deseja excluir esta transação?')) {
-      this.financeService.deleteTransaction(id).subscribe({
-        next: () => {
-          console.log('Transação excluída com sucesso');
-          this.loadTransactions(); // Reload transactions
-        },
-        error: (error) => {
-          console.error('Erro ao excluir transação:', error);
-          alert('Erro ao excluir transação');
-        }
-      });
-    }
+    Swal.fire({
+      title: 'Excluir transação?',
+      text: 'Esta ação não pode ser desfeita!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sim, excluir!',
+      cancelButtonText: 'Cancelar',
+      background: '#1f2937',
+      color: '#ffffff'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.financeService.deleteTransaction(id).subscribe({
+          next: () => {
+            Swal.fire({
+              title: 'Excluída!',
+              text: 'A transação foi excluída com sucesso.',
+              icon: 'success',
+              background: '#1f2937',
+              color: '#ffffff',
+              confirmButtonColor: '#10b981'
+            });
+            this.loadTransactions();
+          },
+          error: (error) => {
+            console.error('Erro ao excluir transação:', error);
+            Swal.fire({
+              title: 'Erro!',
+              text: 'Não foi possível excluir a transação.',
+              icon: 'error',
+              background: '#1f2937',
+              color: '#ffffff',
+              confirmButtonColor: '#ef4444'
+            });
+          }
+        });
+      }
+    });
   }
 
   getTotalIncome(): number {

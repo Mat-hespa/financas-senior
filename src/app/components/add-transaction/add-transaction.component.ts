@@ -67,13 +67,20 @@ export class AddTransactionComponent implements OnInit {
 
       const formValue = this.transactionForm.value;
 
+      // Criar data correta a partir do input date
+      const [year, month, day] = formValue.date.split('-').map(Number);
+      const correctedDate = new Date(year, month - 1, day); // month-1 porque Date usa 0-indexed
+
       const transaction = {
         type: formValue.type,
         description: formValue.description.trim(),
         amount: formValue.type === 'expense' ? -Math.abs(parseFloat(formValue.amount)) : Math.abs(parseFloat(formValue.amount)),
         category: formValue.category,
-        date: new Date(formValue.date)
+        date: correctedDate // ← Data corrigida
       };
+
+      console.log('Data selecionada:', formValue.date); // Ex: "2024-08-04"
+      console.log('Data criada:', correctedDate); // Ex: Sun Aug 04 2024
 
       this.financeService.addTransaction(transaction).subscribe({
         next: (savedTransaction) => {
