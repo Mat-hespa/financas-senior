@@ -3,8 +3,13 @@ import { Routes } from '@angular/router';
 export const routes: Routes = [
   {
     path: '',
-    redirectTo: '/dashboard',
+    redirectTo: '/landing',
     pathMatch: 'full'
+  },
+  {
+    path: 'landing',
+    loadComponent: () => import('./components/landing/landing.component').then(c => c.LandingComponent),
+    title: 'Landing - Finance App'
   },
   {
     path: 'dashboard',
@@ -28,6 +33,6 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    redirectTo: '/dashboard'
+    redirectTo: ''
   }
 ];

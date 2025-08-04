@@ -1,10 +1,12 @@
 <!-- Main Content Container -->
-<div class="min-h-screen bg-gray-900 pb-20">
+<div class="min-h-screen bg-gray-900" [class.pb-20]="!isLandingPage()">
   <router-outlet></router-outlet>
 </div>
 
-<!-- Bottom Navigation - Mobile Footer -->
-<nav class="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 z-50">
+<!-- Bottom Navigation - Só aparece nas páginas internas -->
+<nav
+  *ngIf="!isLandingPage()"
+  class="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 z-50">
   <div class="grid grid-cols-3 h-16">
     <!-- Dashboard -->
     <button

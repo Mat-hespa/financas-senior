@@ -1,1 +1,34 @@
 @import "tailwindcss";
+
+/* PWA Styles */
+@media all and (display-mode: standalone) {
+  body {
+    /* Remove any browser UI */
+    margin: 0;
+    padding: 0;
+    background: #111827;
+  }
+}
+
+/* iOS Safe Area */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Remover seleção de texto */
+* {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Scroll suave em iOS */
+html {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Evitar bounce no iOS */
+body {
+  overscroll-behavior: none;
+}
