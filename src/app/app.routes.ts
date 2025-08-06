@@ -3,14 +3,14 @@ import { Routes } from '@angular/router';
 export const routes: Routes = [
   {
     path: '',
-    redirectTo: '/landing',
+    redirectTo: '/dashboard',
     pathMatch: 'full'
   },
-  {
-    path: 'landing',
-    loadComponent: () => import('./components/landing/landing.component').then(c => c.LandingComponent),
-    title: 'Landing - Finance App'
-  },
+  // {
+  //   path: 'landing',
+  //   loadComponent: () => import('./components/landing/landing.component').then(c => c.LandingComponent),
+  //   title: 'Landing - Finance App'
+  // },
   {
     path: 'dashboard',
     loadComponent: () => import('./components/dashboard/dashboard.component').then(c => c.DashboardComponent),

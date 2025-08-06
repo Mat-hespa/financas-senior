@@ -16,10 +16,9 @@ export class AddTransactionComponent implements OnInit {
 
   incomeCategories = [
     'Salário',
-    'Freelance',
     'Investimentos',
     'Vendas',
-    'Prêmios',
+    'Bonificações',
     'Outros'
   ];
 
