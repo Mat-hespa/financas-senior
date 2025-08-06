@@ -1,19 +1,20 @@
 <div class="min-h-screen bg-gray-900 pb-6">
   <!-- Header -->
-  <div class="bg-gradient-to-r from-gray-800 to-gray-900 text-white">
+  <div class="text-white">
     <div class="px-4 py-6">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold">Nova Transação</h1>
-          <p class="text-gray-300 text-sm">Adicione uma receita ou despesa</p>
+          <h1 class="text-2xl font-bold">
+            {{ isEditMode ? "Editar Transação" : "Nova Transação" }}
+          </h1>
+          <p class="text-gray-300 text-sm">
+            {{
+              isEditMode
+                ? "Modifique os dados da transação"
+                : "Adicione uma receita ou despesa"
+            }}
+          </p>
         </div>
-        <!-- <button
-          routerLink="/dashboard"
-          class="bg-gray-900 text-emerald-400 px-4 py-2 rounded-full font-semibold shadow-lg hover:bg-gray-800 transition-all duration-200">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button> -->
       </div>
     </div>
   </div>
@@ -185,6 +186,9 @@
             [disabled]="isSubmitting || transactionForm.invalid"
             class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
           >
+            <span *ngIf="!isSubmitting">
+              {{ isEditMode ? "Atualizar Transação" : "Adicionar Transação" }}
+            </span>
             <span *ngIf="isSubmitting" class="inline-flex items-center">
               <svg
                 class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
@@ -206,9 +210,8 @@
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              Salvando...
+              {{ isEditMode ? "Atualizando..." : "Adicionando..." }}
             </span>
-            <span *ngIf="!isSubmitting">Salvar Transação</span>
           </button>
         </div>
       </form>

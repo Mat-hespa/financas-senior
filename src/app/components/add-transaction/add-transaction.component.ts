@@ -1,8 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { RouterModule, Router } from '@angular/router';
-import { FinanceService } from '../../../services/finance.service';
+import { RouterModule, Router, ActivatedRoute } from '@angular/router';
+import { FinanceService, Transaction } from '../../../services/finance.service';
 
 @Component({
   selector: 'app-add-transaction',
@@ -13,6 +13,8 @@ import { FinanceService } from '../../../services/finance.service';
 export class AddTransactionComponent implements OnInit {
   transactionForm: FormGroup;
   isSubmitting = false;
+  isEditMode = false;
+  transactionId: string | null = null;
 
   incomeCategories = [
     'Salário',
@@ -37,7 +39,8 @@ export class AddTransactionComponent implements OnInit {
   constructor(
     private formBuilder: FormBuilder,
     private financeService: FinanceService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {
     this.transactionForm = this.formBuilder.group({
       type: ['income', Validators.required],
@@ -49,9 +52,41 @@ export class AddTransactionComponent implements OnInit {
   }
 
   ngOnInit() {
+    // Check if we're in edit mode
+    this.transactionId = this.route.snapshot.paramMap.get('id');
+    this.isEditMode = !!this.transactionId;
+
+    if (this.isEditMode && this.transactionId) {
+      this.loadTransaction(this.transactionId);
+    }
+
     // Watch for type changes to update categories
     this.transactionForm.get('type')?.valueChanges.subscribe(() => {
       this.transactionForm.get('category')?.setValue('');
+    });
+  }
+
+  loadTransaction(id: string) {
+    this.financeService.getTransactions().subscribe({
+      next: (transactions) => {
+        const transaction = transactions.find(t => t.id === id);
+        if (transaction) {
+          // Format date for input
+          const dateString = new Date(transaction.date).toISOString().split('T')[0];
+
+          this.transactionForm.patchValue({
+            type: transaction.type,
+            description: transaction.description,
+            amount: Math.abs(transaction.amount), // Always show positive value
+            category: transaction.category,
+            date: dateString
+          });
+        }
+      },
+      error: (error) => {
+        console.error('Erro ao carregar transação:', error);
+        this.router.navigate(['/transactions']);
+      }
     });
   }
 
@@ -68,31 +103,45 @@ export class AddTransactionComponent implements OnInit {
 
       // Criar data correta a partir do input date
       const [year, month, day] = formValue.date.split('-').map(Number);
-      const correctedDate = new Date(year, month - 1, day); // month-1 porque Date usa 0-indexed
+      const correctedDate = new Date(year, month - 1, day);
 
-      const transaction = {
+      const transactionData = {
         type: formValue.type,
         description: formValue.description.trim(),
         amount: formValue.type === 'expense' ? -Math.abs(parseFloat(formValue.amount)) : Math.abs(parseFloat(formValue.amount)),
         category: formValue.category,
-        date: correctedDate // ← Data corrigida
+        date: correctedDate
       };
 
-      console.log('Data selecionada:', formValue.date); // Ex: "2024-08-04"
-      console.log('Data criada:', correctedDate); // Ex: Sun Aug 04 2024
-
-      this.financeService.addTransaction(transaction).subscribe({
-        next: (savedTransaction) => {
-          this.isSubmitting = false;
-          console.log('Transação salva:', savedTransaction);
-          this.router.navigate(['/dashboard']);
-        },
-        error: (error) => {
-          this.isSubmitting = false;
-          console.error('Erro ao salvar transação:', error);
-          alert('Erro ao salvar transação. Tente novamente.');
-        }
-      });
+      if (this.isEditMode && this.transactionId) {
+        // Update existing transaction
+        this.financeService.updateTransaction(this.transactionId, transactionData).subscribe({
+          next: (updatedTransaction) => {
+            this.isSubmitting = false;
+            console.log('Transação atualizada:', updatedTransaction);
+            this.router.navigate(['/transactions']);
+          },
+          error: (error) => {
+            this.isSubmitting = false;
+            console.error('Erro ao atualizar transação:', error);
+            alert('Erro ao atualizar transação. Tente novamente.');
+          }
+        });
+      } else {
+        // Create new transaction
+        this.financeService.addTransaction(transactionData).subscribe({
+          next: (savedTransaction) => {
+            this.isSubmitting = false;
+            console.log('Transação salva:', savedTransaction);
+            this.router.navigate(['/dashboard']);
+          },
+          error: (error) => {
+            this.isSubmitting = false;
+            console.error('Erro ao salvar transação:', error);
+            alert('Erro ao salvar transação. Tente novamente.');
+          }
+        });
+      }
     } else {
       this.markFormGroupTouched();
     }
