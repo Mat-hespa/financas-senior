@@ -34,6 +34,6 @@ export class AppComponent {
   }
 
   isLandingPage(): boolean {
-    return this.currentRoute === '/landing' || this.currentRoute === '/';
+    return this.currentRoute === '/landing';
   }
 }
