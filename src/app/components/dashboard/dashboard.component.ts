@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Chart, registerables } from 'chart.js';
 import { FinanceService, MonthlyArchive, Transaction } from '../../../services/finance.service';
+import Swal from 'sweetalert2';
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -28,6 +29,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   isLoading = true;
   showArchivePrompt = false;
   monthlyArchives: MonthlyArchive[] = [];
+  showAmounts = false; // Changed to false - amounts hidden by default
 
   private pieChart?: Chart;
   private barChart?: Chart;
@@ -196,13 +198,21 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       : 'text-red-400';
   }
 
+  hasExpenseData(): boolean {
+    return this.monthlyData ? Object.keys(this.monthlyData.expensesByCategory).length > 0 : false;
+  }
+
+  hasIncomeOrExpenseData(): boolean {
+    return this.monthlyData ? (this.monthlyData.totalIncome > 0 || this.monthlyData.totalExpenses > 0) : false;
+  }
+
   createPieChart() {
     if (!this.monthlyData || !this.pieChartRef) return;
 
     const categories = Object.keys(this.monthlyData.expensesByCategory);
     const amounts = Object.values(this.monthlyData.expensesByCategory);
 
-    if (categories.length === 0) return;
+    if (categories.length === 0) return; // Let template handle empty state
 
     const ctx = this.pieChartRef.nativeElement.getContext('2d');
     if (!ctx) return;
@@ -245,6 +255,9 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   createBarChart() {
     if (!this.monthlyData || !this.barChartRef) return;
+
+    // Let template handle empty state if no data
+    if (this.monthlyData.totalIncome === 0 && this.monthlyData.totalExpenses === 0) return;
 
     const ctx = this.barChartRef.nativeElement.getContext('2d');
     if (!ctx) return;
@@ -298,6 +311,22 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       }
     });
+  }
+
+  toggleAmountVisibility() {
+    this.showAmounts = !this.showAmounts;
+  }
+
+  formatAmount(amount: number): string {
+    if (!this.showAmounts) {
+      return '••••••';
+    }
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
   }
 
   ngOnDestroy() {
