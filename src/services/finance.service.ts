@@ -260,4 +260,152 @@ export class FinanceService {
     localStorage.removeItem(this.archiveKey);
     localStorage.removeItem('last-archive-check');
   }
+
+    // Verificar se deve arquivar automaticamente
+    shouldAutoArchive(): boolean {
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+
+      // Verifica se já foi arquivado este mês
+      const archives = this.getStoredArchives();
+      const hasCurrentMonthArchive = archives.some(a => a.month === currentMonth);
+
+      if (hasCurrentMonthArchive) return false;
+
+      // Verifica se há transações do mês anterior
+      const transactions = this.getStoredTransactions();
+      const lastMonthTransactions = transactions.filter(t => {
+        const transactionMonth = new Date(t.date);
+        const transactionMonthKey = `${transactionMonth.getFullYear()}-${(transactionMonth.getMonth() + 1).toString().padStart(2, '0')}`;
+        return transactionMonthKey !== currentMonth;
+      });
+
+      return lastMonthTransactions.length > 0;
+    }
+
+    // Arquivar um mês específico
+    archiveSpecificMonth(monthKey: string): Observable<MonthlyArchive> {
+      try {
+        const transactions = this.getStoredTransactions();
+        const [year, month] = monthKey.split('-').map(Number);
+
+        const monthTransactions = transactions.filter(t => {
+          const transactionDate = new Date(t.date);
+          return transactionDate.getFullYear() === year &&
+                 transactionDate.getMonth() === month - 1;
+        });
+
+        if (monthTransactions.length === 0) {
+          throw new Error('Nenhuma transação encontrada para este mês');
+        }
+
+        // Calcular resumo
+        const totalIncome = monthTransactions
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+        const totalExpenses = monthTransactions
+          .filter(t => t.type === 'expense')
+          .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+        const archive: MonthlyArchive = {
+          month: monthKey,
+          transactions: monthTransactions,
+          summary: {
+            totalIncome,
+            totalExpenses,
+            balance: totalIncome - totalExpenses
+          },
+          archivedAt: new Date()
+        };
+
+        // Salvar arquivo
+        this.saveArchive(archive);
+
+        // Remover transações arquivadas do storage principal
+        const remainingTransactions = transactions.filter(t => {
+          const transactionDate = new Date(t.date);
+          return !(transactionDate.getFullYear() === year &&
+                  transactionDate.getMonth() === month - 1);
+        });
+
+        this.saveTransactions(remainingTransactions);
+
+        return of(archive).pipe(delay(300));
+      } catch (error) {
+        throw error;
+      }
+    }
+
+    // Obter meses disponíveis para arquivar
+    getAvailableMonthsToArchive(): string[] {
+      const transactions = this.getStoredTransactions();
+      const archives = this.getStoredArchives();
+      const archivedMonths = archives.map(a => a.month);
+
+      const monthsWithTransactions = [...new Set(transactions.map(t => {
+        const date = new Date(t.date);
+        return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+      }))];
+
+      return monthsWithTransactions
+        .filter(month => !archivedMonths.includes(month))
+        .sort((a, b) => b.localeCompare(a)); // Ordenar do mais recente para o mais antigo
+    }
+
+    // Restaurar mês arquivado
+    restoreArchivedMonth(monthKey: string): Observable<void> {
+      try {
+        const archives = this.getStoredArchives();
+        const archiveIndex = archives.findIndex(a => a.month === monthKey);
+
+        if (archiveIndex === -1) {
+          throw new Error('Arquivo não encontrado');
+        }
+
+        const archive = archives[archiveIndex];
+        const currentTransactions = this.getStoredTransactions();
+
+        // Adicionar transações de volta
+        const allTransactions = [...currentTransactions, ...archive.transactions];
+        this.saveTransactions(allTransactions);
+
+        // Remover do arquivo
+        archives.splice(archiveIndex, 1);
+        localStorage.setItem(this.archiveKey, JSON.stringify(archives));
+
+        return of(undefined).pipe(delay(200));
+      } catch (error) {
+        throw error;
+      }
+    }
+
+    // Deletar arquivo permanentemente
+    deleteArchive(monthKey: string): Observable<void> {
+      try {
+        const archives = this.getStoredArchives();
+        const filteredArchives = archives.filter(a => a.month !== monthKey);
+        localStorage.setItem(this.archiveKey, JSON.stringify(filteredArchives));
+
+        return of(undefined).pipe(delay(100));
+      } catch (error) {
+        throw error;
+      }
+    }
+
+    // Obter estatísticas dos arquivos
+    getArchiveStats(): { totalArchives: number, totalTransactions: number, oldestMonth: string | null } {
+      const archives = this.getStoredArchives();
+      const totalTransactions = archives.reduce((sum, archive) => sum + archive.transactions.length, 0);
+      const oldestMonth = archives.length > 0
+        ? archives.sort((a, b) => a.month.localeCompare(b.month))[0].month
+        : null;
+
+      return {
+        totalArchives: archives.length,
+        totalTransactions,
+        oldestMonth
+      };
+    }
+
 }

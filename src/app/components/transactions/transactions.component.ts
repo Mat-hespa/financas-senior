@@ -1,9 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
-import { Router } from '@angular/router';
-import { FinanceService, Transaction } from '../../../services/finance.service';
+import { RouterModule, Router } from '@angular/router';
+import { FinanceService, Transaction, MonthlyArchive } from '../../../services/finance.service';
 import Swal from 'sweetalert2';
 
 @Component({
@@ -26,6 +25,14 @@ export class TransactionsComponent implements OnInit {
   // Categories for filter dropdown
   allCategories: string[] = [];
 
+  // Novas propriedades para gerenciamento de arquivos
+  availableMonths: string[] = [];
+  archivedMonths: MonthlyArchive[] = [];
+  showArchiveSection = false;
+
+  showArchivedMonths = false;
+
+
   constructor(
     private financeService: FinanceService,
     private router: Router
@@ -33,24 +40,8 @@ export class TransactionsComponent implements OnInit {
 
   ngOnInit() {
     this.loadTransactions();
-  }
-
-  loadTransactions() {
-    this.isLoading = true;
-    this.financeService.getTransactions().subscribe({
-      next: (transactions) => {
-        this.allTransactions = transactions.sort((a, b) =>
-          new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-        this.filteredTransactions = [...this.allTransactions];
-        this.extractCategories();
-        this.isLoading = false;
-      },
-      error: (error) => {
-        console.error('Erro ao carregar transações:', error);
-        this.isLoading = false;
-      }
-    });
+    this.loadArchives();
+    this.checkForAvailableArchives();
   }
 
   extractCategories() {
@@ -446,5 +437,211 @@ export class TransactionsComponent implements OnInit {
         });
       }
     });
+  }
+
+  loadArchives() {
+    this.financeService.getMonthlyArchives().subscribe({
+      next: (archives) => {
+        this.archivedMonths = archives.sort((a, b) => b.month.localeCompare(a.month));
+      },
+      error: (error) => {
+        console.error('Erro ao carregar arquivos:', error);
+      }
+    });
+  }
+
+  checkForAvailableArchives() {
+    this.availableMonths = this.financeService.getAvailableMonthsToArchive();
+    this.showArchiveSection = this.availableMonths.length > 0 || this.archivedMonths.length > 0;
+  }
+
+  // Arquivar um mês específico
+  archiveMonth(monthKey: string) {
+    const monthName = this.getMonthName(monthKey);
+
+    Swal.fire({
+      title: `Arquivar ${monthName}?`,
+      text: 'As transações serão removidas da visualização principal mas ficarão disponíveis para exportação.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3b82f6',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sim, arquivar!',
+      cancelButtonText: 'Cancelar',
+      background: '#1f2937',
+      color: '#ffffff'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.financeService.archiveSpecificMonth(monthKey).subscribe({
+          next: (archive) => {
+            Swal.fire({
+              title: 'Arquivado!',
+              text: `${monthName} foi arquivado com sucesso.`,
+              icon: 'success',
+              background: '#1f2937',
+              color: '#ffffff',
+              confirmButtonColor: '#10b981'
+            });
+            this.loadTransactions();
+            this.loadArchives();
+            this.checkForAvailableArchives();
+          },
+          error: (error) => {
+            console.error('Erro ao arquivar:', error);
+            Swal.fire({
+              title: 'Erro!',
+              text: 'Não foi possível arquivar o mês.',
+              icon: 'error',
+              background: '#1f2937',
+              color: '#ffffff',
+              confirmButtonColor: '#ef4444'
+            });
+          }
+        });
+      }
+    });
+  }
+
+  // Restaurar mês arquivado
+  restoreMonth(monthKey: string) {
+    const monthName = this.getMonthName(monthKey);
+
+    Swal.fire({
+      title: `Restaurar ${monthName}?`,
+      text: 'As transações voltarão para a visualização principal.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sim, restaurar!',
+      cancelButtonText: 'Cancelar',
+      background: '#1f2937',
+      color: '#ffffff'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.financeService.restoreArchivedMonth(monthKey).subscribe({
+          next: () => {
+            Swal.fire({
+              title: 'Restaurado!',
+              text: `${monthName} foi restaurado com sucesso.`,
+              icon: 'success',
+              background: '#1f2937',
+              color: '#ffffff',
+              confirmButtonColor: '#10b981'
+            });
+            this.loadTransactions();
+            this.loadArchives();
+            this.checkForAvailableArchives();
+          },
+          error: (error) => {
+            console.error('Erro ao restaurar:', error);
+            Swal.fire({
+              title: 'Erro!',
+              text: 'Não foi possível restaurar o mês.',
+              icon: 'error',
+              background: '#1f2937',
+              color: '#ffffff',
+              confirmButtonColor: '#ef4444'
+            });
+          }
+        });
+      }
+    });
+  }
+
+  // Deletar arquivo permanentemente
+  deleteArchivedMonth(monthKey: string) {
+    const monthName = this.getMonthName(monthKey);
+
+    Swal.fire({
+      title: `Deletar ${monthName}?`,
+      text: 'Esta ação é irreversível! Todos os dados deste mês serão perdidos permanentemente.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sim, deletar!',
+      cancelButtonText: 'Cancelar',
+      background: '#1f2937',
+      color: '#ffffff'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.financeService.deleteArchive(monthKey).subscribe({
+          next: () => {
+            Swal.fire({
+              title: 'Deletado!',
+              text: `${monthName} foi deletado permanentemente.`,
+              icon: 'success',
+              background: '#1f2937',
+              color: '#ffffff',
+              confirmButtonColor: '#10b981'
+            });
+            this.loadArchives();
+            this.checkForAvailableArchives();
+          },
+          error: (error) => {
+            console.error('Erro ao deletar:', error);
+            Swal.fire({
+              title: 'Erro!',
+              text: 'Não foi possível deletar o arquivo.',
+              icon: 'error',
+              background: '#1f2937',
+              color: '#ffffff',
+              confirmButtonColor: '#ef4444'
+            });
+          }
+        });
+      }
+    });
+  }
+
+  // Exportar mês arquivado
+  exportArchivedMonth(monthKey: string, format: 'json' | 'csv' | 'pdf') {
+    const archive = this.archivedMonths.find(a => a.month === monthKey);
+    if (!archive) return;
+
+    switch (format) {
+      case 'json':
+        this.exportAsJSON(archive.transactions, monthKey);
+        break;
+      case 'csv':
+        this.exportAsCSVWithEncoding(archive.transactions, monthKey);
+        break;
+      case 'pdf':
+        this.exportAsPDF(archive.transactions, monthKey);
+        break;
+    }
+  }
+
+  // Obter nome do mês
+  getMonthName(monthKey: string): string {
+    const [year, month] = monthKey.split('-');
+    const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    return `${monthNames[parseInt(month) - 1]} ${year}`;
+  }
+
+  // Atualizar método loadTransactions para chamar checkForAvailableArchives
+  loadTransactions() {
+    this.isLoading = true;
+    this.financeService.getTransactions().subscribe({
+      next: (transactions) => {
+        this.allTransactions = transactions.sort((a, b) =>
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        this.extractCategories();
+        this.applyFilters();
+        this.isLoading = false;
+        this.checkForAvailableArchives(); // Adicionar esta linha
+      },
+      error: (error) => {
+        console.error('Erro ao carregar transações:', error);
+        this.isLoading = false;
+      }
+    });
+  }
+
+  toggleArchivedMonths() {
+    this.showArchivedMonths = !this.showArchivedMonths;
   }
 }
