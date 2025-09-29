@@ -2,8 +2,7 @@ import { Component, OnInit, OnDestroy, ElementRef, ViewChild, AfterViewInit } fr
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Chart, registerables } from 'chart.js';
-import { FinanceService, MonthlyArchive, Transaction } from '../../../services/finance.service';
-import Swal from 'sweetalert2';
+import { FinanceService, Transaction, MonthlySummary } from '../../../services/finance.service';
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -25,11 +24,10 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('barChart') barChartRef!: ElementRef<HTMLCanvasElement>;
 
   monthlyData: MonthlyData | null = null;
+  currentMonthlySummary: MonthlySummary | null = null;
   recentTransactions: Transaction[] = [];
   isLoading = true;
-  showArchivePrompt = false;
-  monthlyArchives: MonthlyArchive[] = [];
-  showAmounts = false; // Changed to false - amounts hidden by default
+  showAmounts = false;
 
   private pieChart?: Chart;
   private barChart?: Chart;
@@ -37,47 +35,51 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   constructor(private financeService: FinanceService) {}
 
   ngOnInit() {
-    this.checkForArchivePrompt();
     this.loadDashboardData();
-    this.loadArchives();
   }
 
   ngAfterViewInit() {
     // Charts will be created after data is loaded
   }
 
-  checkForArchivePrompt() {
-    this.showArchivePrompt = this.financeService.shouldPromptForArchive();
-  }
-
   loadDashboardData() {
     this.isLoading = true;
+
+    // Carregar transações e resumo mensal em paralelo
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     this.financeService.getTransactions().subscribe({
       next: (transactions) => {
         this.processTransactions(transactions);
-        this.isLoading = false;
 
-        // Create charts after data is loaded
-        setTimeout(() => {
-          this.createPieChart();
-          this.createBarChart();
-        }, 100);
+        // Carregar resumo mensal atual
+        this.financeService.getMonthlySummary(currentMonthKey).subscribe({
+          next: (summary) => {
+            this.currentMonthlySummary = summary;
+            this.isLoading = false;
+
+            // Create charts after data is loaded
+            setTimeout(() => {
+              this.createPieChart();
+              this.createBarChart();
+            }, 100);
+          },
+          error: (error) => {
+            console.error('Erro ao carregar resumo mensal:', error);
+            this.isLoading = false;
+
+            // Create charts mesmo sem resumo
+            setTimeout(() => {
+              this.createPieChart();
+              this.createBarChart();
+            }, 100);
+          }
+        });
       },
       error: (error) => {
         console.error('Erro ao carregar transações:', error);
         this.isLoading = false;
-      }
-    });
-  }
-
-  loadArchives() {
-    this.financeService.getMonthlyArchives().subscribe({
-      next: (archives) => {
-        this.monthlyArchives = archives;
-      },
-      error: (error) => {
-        console.error('Erro ao carregar arquivos:', error);
       }
     });
   }
@@ -122,61 +124,52 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       .slice(0, 5);
   }
 
-  // Archive Management Methods
-  archiveCurrentMonth() {
-    this.isLoading = true;
-    this.financeService.archiveCurrentMonth().subscribe({
-      next: (archive) => {
-        console.log('Mês arquivado:', archive);
-        this.showArchivePrompt = false;
-        this.loadDashboardData(); // Reload data
-        this.loadArchives(); // Reload archives
-      },
-      error: (error) => {
-        console.error('Erro ao arquivar mês:', error);
-        this.isLoading = false;
-      }
-    });
-  }
-
-  dismissArchivePrompt() {
-    this.showArchivePrompt = false;
-  }
-
-  exportArchive(monthKey: string, format: 'json' | 'csv') {
-    const exportMethod = format === 'json'
-      ? this.financeService.exportArchiveAsJSON(monthKey)
-      : this.financeService.exportArchiveAsCSV(monthKey);
-
-    exportMethod.subscribe({
-      next: (data) => {
-        this.downloadFile(data, `financeiro-${monthKey}.${format}`,
-          format === 'json' ? 'application/json' : 'text/csv');
-      },
-      error: (error) => {
-        console.error('Erro ao exportar:', error);
-      }
-    });
-  }
-
-  private downloadFile(data: string, filename: string, type: string) {
-    const blob = new Blob([data], { type });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    window.URL.revokeObjectURL(url);
+  getBalance(): number {
+    if (this.currentMonthlySummary) {
+      return this.currentMonthlySummary.summary.balance;
+    }
+    if (!this.monthlyData) return 0;
+    return this.monthlyData.totalIncome - this.monthlyData.totalExpenses;
   }
 
   getMonthlyBalance(): number {
-    if (!this.monthlyData) return 0;
-    return this.monthlyData.totalIncome - this.monthlyData.totalExpenses;
+    return this.getBalance();
   }
 
-  getBalance(): number {
-    if (!this.monthlyData) return 0;
-    return this.monthlyData.totalIncome - this.monthlyData.totalExpenses;
+  getCurrentMonthIncome(): number {
+    if (this.currentMonthlySummary) {
+      return this.currentMonthlySummary.summary.totalIncome;
+    }
+    return this.monthlyData?.totalIncome || 0;
+  }
+
+  getCurrentMonthExpenses(): number {
+    if (this.currentMonthlySummary) {
+      return this.currentMonthlySummary.summary.totalExpenses;
+    }
+    return this.monthlyData?.totalExpenses || 0;
+  }
+
+  getCurrentMonthTransactionCount(): number {
+    if (this.currentMonthlySummary) {
+      return this.currentMonthlySummary.summary.transactionCount;
+    }
+    return this.recentTransactions.length;
+  }
+
+  initializeMonthlySummaries() {
+    this.isLoading = true;
+
+    this.financeService.initializeMonthlySummaries().subscribe({
+      next: (result) => {
+        console.log('Resumos mensais inicializados:', result);
+        this.loadDashboardData();
+      },
+      error: (error) => {
+        console.error('Erro ao inicializar resumos mensais:', error);
+        this.isLoading = false;
+      }
+    });
   }
 
   getBalanceColor(): string {
@@ -203,7 +196,9 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   hasIncomeOrExpenseData(): boolean {
-    return this.monthlyData ? (this.monthlyData.totalIncome > 0 || this.monthlyData.totalExpenses > 0) : false;
+    const totalIncome = this.getCurrentMonthIncome();
+    const totalExpenses = this.getCurrentMonthExpenses();
+    return totalIncome > 0 || totalExpenses > 0;
   }
 
   createPieChart() {
@@ -212,12 +207,11 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     const categories = Object.keys(this.monthlyData.expensesByCategory);
     const amounts = Object.values(this.monthlyData.expensesByCategory);
 
-    if (categories.length === 0) return; // Let template handle empty state
+    if (categories.length === 0) return;
 
     const ctx = this.pieChartRef.nativeElement.getContext('2d');
     if (!ctx) return;
 
-    // Destroy existing chart
     if (this.pieChart) {
       this.pieChart.destroy();
     }
@@ -254,15 +248,16 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   createBarChart() {
-    if (!this.monthlyData || !this.barChartRef) return;
+    if (!this.barChartRef) return;
 
-    // Let template handle empty state if no data
-    if (this.monthlyData.totalIncome === 0 && this.monthlyData.totalExpenses === 0) return;
+    const totalIncome = this.getCurrentMonthIncome();
+    const totalExpenses = this.getCurrentMonthExpenses();
+
+    if (totalIncome === 0 && totalExpenses === 0) return;
 
     const ctx = this.barChartRef.nativeElement.getContext('2d');
     if (!ctx) return;
 
-    // Destroy existing chart
     if (this.barChart) {
       this.barChart.destroy();
     }
@@ -273,7 +268,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
         labels: ['Receitas', 'Gastos'],
         datasets: [{
           label: 'Valores (R$)',
-          data: [this.monthlyData.totalIncome, this.monthlyData.totalExpenses],
+          data: [totalIncome, totalExpenses],
           backgroundColor: ['#22c55e', '#ef4444'],
           borderColor: ['#16a34a', '#dc2626'],
           borderWidth: 1
@@ -330,7 +325,6 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    // Cleanup charts
     if (this.pieChart) {
       this.pieChart.destroy();
     }

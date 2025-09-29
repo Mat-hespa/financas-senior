@@ -85,7 +85,7 @@ export class AddTransactionComponent implements OnInit {
       },
       error: (error) => {
         console.error('Erro ao carregar transação:', error);
-        this.router.navigate(['/transactions']);
+        this.router.navigate(['/monthly-history']);
       }
     });
   }
@@ -105,21 +105,27 @@ export class AddTransactionComponent implements OnInit {
       const [year, month, day] = formValue.date.split('-').map(Number);
       const correctedDate = new Date(year, month - 1, day);
 
-      const transactionData = {
-        type: formValue.type,
-        description: formValue.description.trim(),
-        amount: formValue.type === 'expense' ? -Math.abs(parseFloat(formValue.amount)) : Math.abs(parseFloat(formValue.amount)),
-        category: formValue.category,
-        date: correctedDate
-      };
+      // Calcular valor final com sinal correto
+      let finalAmount = Math.abs(formValue.amount);
+      if (formValue.type === 'expense') {
+        finalAmount = -finalAmount;
+      }
 
-      if (this.isEditMode && this.transactionId) {
+        const transactionData: Omit<Transaction, 'id' | '_id'> = {
+          type: this.transactionForm.value.type,
+          description: this.transactionForm.value.description,
+          amount: finalAmount,
+          category: this.transactionForm.value.category,
+          date: correctedDate,
+          created: new Date(),
+          userId: 'default-user'
+        };      if (this.isEditMode && this.transactionId) {
         // Update existing transaction
         this.financeService.updateTransaction(this.transactionId, transactionData).subscribe({
           next: (updatedTransaction) => {
             this.isSubmitting = false;
             console.log('Transação atualizada:', updatedTransaction);
-            this.router.navigate(['/transactions']);
+            this.router.navigate(['/monthly-history']);
           },
           error: (error) => {
             this.isSubmitting = false;

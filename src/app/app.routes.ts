@@ -21,15 +21,16 @@ export const routes: Routes = [
     loadComponent: () => import('./components/add-transaction/add-transaction.component').then(c => c.AddTransactionComponent),
     title: 'Nova Transação - Finance App'
   },
-  {
-    path: 'transactions',
-    loadComponent: () => import('./components/transactions/transactions.component').then(c => c.TransactionsComponent),
-    title: 'Transações - Finance App'
-  },
+
   {
     path: 'edit-transaction/:id',
     loadComponent: () => import('./components/add-transaction/add-transaction.component').then(c => c.AddTransactionComponent),
     title: 'Editar Transação - Finance App'
+  },
+  {
+    path: 'monthly-history',
+    loadComponent: () => import('./components/monthly-history/monthly-history.component').then(c => c.MonthlyHistoryComponent),
+    title: 'Histórico Mensal - Finance App'
   },
   {
     path: '**',

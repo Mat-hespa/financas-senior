@@ -6,12 +6,13 @@
         <div>
           <h1 class="text-2xl font-bold">Dashboard</h1>
         </div>
-        <!-- Visibility Toggle -->
-        <button
-          (click)="toggleAmountVisibility()"
-          class="p-2 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 transition-colors"
-          [attr.aria-label]="showAmounts ? 'Ocultar valores' : 'Mostrar valores'"
-        >
+        <div class="flex items-center gap-2">
+          <!-- Visibility Toggle -->
+          <button
+            (click)="toggleAmountVisibility()"
+            class="p-2 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 transition-colors"
+            [attr.aria-label]="showAmounts ? 'Ocultar valores' : 'Mostrar valores'"
+          >
           <svg
             *ngIf="showAmounts"
             class="w-5 h-5 text-gray-300"
@@ -90,7 +91,7 @@
           <span class="text-xs text-gray-300">Receitas</span>
         </div>
         <p class="text-lg font-bold text-green-400">
-          {{ formatAmount(monthlyData?.totalIncome || 0) }}
+          {{ formatAmount(getCurrentMonthIncome()) }}
         </p>
       </div>
 
@@ -117,7 +118,7 @@
           <span class="text-xs text-gray-300">Despesas</span>
         </div>
         <p class="text-lg font-bold text-red-400">
-          {{ formatAmount(monthlyData?.totalExpenses || 0) }}
+          {{ formatAmount(getCurrentMonthExpenses()) }}
         </p>
       </div>
 
@@ -188,6 +189,70 @@
               <span class="text-xs opacity-75">financeira este mês</span>
             </p>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Informações do Resumo Mensal -->
+    <div *ngIf="currentMonthlySummary" class="bg-gray-800 rounded-xl shadow-lg border border-gray-700 p-4">
+      <h3 class="font-semibold text-white flex items-center mb-3 text-sm">
+        <div class="w-2 h-4 bg-purple-500 rounded-full mr-2"></div>
+        Resumo Mensal Automático
+      </h3>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div class="text-center">
+          <div class="text-gray-400 mb-1">Total de Transações</div>
+          <div class="text-lg font-bold text-purple-400">
+            {{ getCurrentMonthTransactionCount() }}
+          </div>
+        </div>
+
+        <div class="text-center">
+          <div class="text-gray-400 mb-1">Mês</div>
+          <div class="text-lg font-bold text-gray-200">
+            {{ currentMonthlySummary.month }}
+          </div>
+        </div>
+
+        <div class="text-center">
+          <div class="text-gray-400 mb-1">Atualizado</div>
+          <div class="text-sm text-gray-300">
+            {{ currentMonthlySummary.updatedAt | date:'dd/MM HH:mm' }}
+          </div>
+        </div>
+
+        <div class="text-center">
+          <div class="text-gray-400 mb-1">Status</div>
+          <div class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-900 text-green-300">
+            <div class="w-1.5 h-1.5 bg-green-400 rounded-full mr-1"></div>
+            Sincronizado
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aviso caso não tenha resumo mensal -->
+    <div *ngIf="!currentMonthlySummary && !isLoading && hasIncomeOrExpenseData()" class="bg-yellow-900 border border-yellow-700 rounded-xl p-4">
+      <div class="flex items-start space-x-3">
+        <svg class="w-6 h-6 text-yellow-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.314 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+        </svg>
+        <div class="flex-grow">
+          <h4 class="font-medium text-yellow-100 mb-1">Resumos Mensais Não Configurados</h4>
+          <p class="text-sm text-yellow-200 mb-3">
+            Para aproveitar ao máximo o sistema, inicialize os resumos mensais automáticos.
+            Isso permitirá um melhor controle e métricas das suas finanças.
+          </p>
+          <button
+            (click)="initializeMonthlySummaries()"
+            class="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Inicializar Resumos Mensais
+          </button>
         </div>
       </div>
     </div>
